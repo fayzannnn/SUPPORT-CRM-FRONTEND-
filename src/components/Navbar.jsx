@@ -11,9 +11,6 @@ export default function Navbar() {
           Support <span>CRM</span>
         </h1>
       </Link>
-      <Link to="/create" style={{ textDecoration: "none" }}>
-        <button>+ New Ticket</button>
-      </Link>
     </div>
   );
 }
