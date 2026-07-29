@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { getTickets } from "../api/api";
+import { getTickets, deleteTicket } from "../api/api";
 
-export default function TicketList() {
+// status: controlled from parent (Home) so stat cards can drive the filter.
+// onDataChange: reports the fetched tickets back up so Home can compute stat counts.
+export default function TicketList({ status, onDataChange }) {
   const [tickets, setTickets] = useState([]);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("All");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -14,27 +15,39 @@ export default function TicketList() {
       setLoading(true);
       const res = await getTickets({ search, status });
       setTickets(res.data);
+      if (onDataChange) onDataChange(res.data, { search, status });
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, status]);
 
-  // debounced search-as-you-type + refetch whenever status changes
   useEffect(() => {
     const delay = setTimeout(() => {
       fetchTickets();
-    }, 300);
+    }, 300); // debounce search-as-you-type
     return () => clearTimeout(delay);
   }, [fetchTickets]);
 
-  // refetch when user comes back to this tab/page (e.g. after creating a ticket)
   useEffect(() => {
     const onFocus = () => fetchTickets();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [fetchTickets]);
+
+  const handleDelete = async (e, id) => {
+    e.stopPropagation(); // don't trigger row navigation
+    if (!window.confirm("Delete this ticket? This can't be undone.")) return;
+    try {
+      await deleteTicket(id);
+      fetchTickets();
+      if (onDataChange) onDataChange();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <div className="card">
@@ -44,12 +57,6 @@ export default function TicketList() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="All">All Status</option>
-          <option value="Open">Open</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Closed">Closed</option>
-        </select>
       </div>
 
       {loading ? (
@@ -65,6 +72,7 @@ export default function TicketList() {
               <th>Title</th>
               <th>Status</th>
               <th>Date</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -79,6 +87,22 @@ export default function TicketList() {
                   </span>
                 </td>
                 <td>{new Date(t.createdAt).toLocaleDateString()}</td>
+                <td>
+                  <button
+                    onClick={(e) => handleDelete(e, t._id)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#ff6b6b",
+                      fontSize: 16,
+                      cursor: "pointer",
+                      padding: "4px 8px",
+                    }}
+                    title="Delete ticket"
+                  >
+                    🗑️
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
